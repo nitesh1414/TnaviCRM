@@ -1,0 +1,16 @@
+# Development MySQL. Replace demo credentials before deployment.
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: tnavicrm
+      MYSQL_USER: tnavicrm
+      MYSQL_PASSWORD: tnavicrm_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/mysql-store.sql:/docker-entrypoint-initdb.d/mysql-store.sql:ro
+volumes:
+  mysql_data:
