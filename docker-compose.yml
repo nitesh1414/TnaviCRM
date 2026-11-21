@@ -1,0 +1,16 @@
+# Optional MySQL instance for future integration. The current API only supports JSON.
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: tnavicrm
+      MYSQL_USER: tnavicrm
+      MYSQL_PASSWORD: tnavicrm_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+volumes:
+  mysql_data:
