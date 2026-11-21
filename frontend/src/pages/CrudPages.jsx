@@ -132,7 +132,7 @@ export function ProposalsPage() {
       { key: 'proposedRent', label: 'Proposed Rent (₹/mo)', type: 'number' }, { key: 'securityDeposit', label: 'Security Deposit (₹)', type: 'number' },
       { key: 'leasePeriod', label: 'Lease Period (years)', type: 'number' }, { key: 'escalation', label: 'Escalation' },
       { key: 'stage', label: 'Stage', type: 'select', options: ['Draft','Sent','Negotiation','Counter Offer','Agreed','Rejected'] },
-      { key: 'status', label: 'Status', type: 'select', options: ['Draft','Sent','Approved','Rejected'] },
+      { key: 'status', label: 'Status', type: 'select', options: ['Draft','Sent'] },
       { key: 'assignedTo', label: 'Assigned To', type: 'lookup', items: userOpts },
       { key: 'terms', label: 'Commercial Terms', type: 'textarea' },
     ],

@@ -1,7 +1,4 @@
 require('dotenv').config();
-if (process.env.DB_DRIVER && process.env.DB_DRIVER !== 'json') {
-  throw new Error('Only the JSON demo database is implemented; MySQL integration is not yet available.');
-}
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -15,8 +12,7 @@ app.use(cors({ origin: process.env.CLIENT_URL || true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// static uploads
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Uploads are available only via the authenticated documents endpoint.
 
 // health
 app.get('/api/health', (req, res) => res.json({ success: true, message: 'TnaviCRM API running', time: new Date().toISOString() }));
@@ -25,6 +21,9 @@ app.get('/api/health', (req, res) => res.json({ success: true, message: 'TnaviCR
 app.use('/api/auth', require('./routes/auth'));
 
 // protected routes
+app.use('/api/settings', auth, require('./routes/settings').router);
+app.use('/api/outbound', auth, require('./routes/outbound'));
+app.use('/api/reminders', auth, require('./routes/reminders'));
 app.use('/api/dashboard', auth, require('./routes/dashboard'));
 app.use('/api/matching', auth, require('./routes/matching'));
 app.use('/api/reports', auth, require('./routes/reports'));
@@ -37,7 +36,7 @@ app.use('/api/brands', auth, makeCrud('brands', { entityName: 'Brand', searchFie
 app.use('/api/leads', auth, makeCrud('leads', { entityName: 'Lead', searchFields: ['title','status','source','notes'] }));
 app.use('/api/meetings', auth, makeCrud('meetings', { entityName: 'Meeting', searchFields: ['title','purpose','venue','status','type'] }));
 app.use('/api/communications', auth, makeCrud('communications', { entityName: 'Communication', searchFields: ['type','notes','feedback'] }));
-app.use('/api/proposals', auth, makeCrud('proposals', { entityName: 'Proposal', searchFields: ['title','stage','status','terms'] }));
+app.use('/api/proposals', auth, require('./routes/proposals'));
 app.use('/api/leases', auth, makeCrud('leases', { entityName: 'Lease', searchFields: ['tenantName','status'] }));
 app.use('/api/tasks', auth, makeCrud('tasks', { entityName: 'Task', searchFields: ['title','priority','status','description'] }));
 
@@ -60,7 +59,11 @@ app.get('/api/timeline/:type/:id', auth, (req, res) => {
 
 // 404 + error handler
 app.use((req, res) => res.status(404).json({ success: false, message: 'Route not found' }));
-app.use((err, req, res, next) => { console.error(err); res.status(500).json({ success: false, message: err.message || 'Server error' }); });
+app.use((err, req, res, next) => { console.error(err); res.status(err.code === 'LIMIT_FILE_SIZE' ? 413 : 500).json({ success: false, message: err.code === 'LIMIT_FILE_SIZE' ? 'File exceeds 25 MB limit' : 'Server error' }); });
 
+if (process.env.DB_DRIVER === 'mysql') require('./utils/mysqlStore').call('ping');
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, '0.0.0.0', () => console.log(`TnaviCRM API listening on http://0.0.0.0:${PORT}`));
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`TnaviCRM API listening on http://0.0.0.0:${PORT}`);
+  if (process.env.REMINDER_WORKER !== 'false') require('./utils/reminderWorker').startReminderWorker();
+});

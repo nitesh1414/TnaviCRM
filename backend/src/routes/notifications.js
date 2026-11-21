@@ -23,6 +23,8 @@ router.get('/', (req, res) => {
 });
 
 router.patch('/:id/read', (req, res) => {
+  const existing = db.find('notifications', req.params.id);
+  if (!existing || (req.user.role !== 'admin' && String(existing.userId) !== String(req.user.id))) return res.status(404).json({ success: false, message: 'Not found' });
   const n = db.update('notifications', req.params.id, { read: true });
   if (!n) return res.status(404).json({ success: false, message: 'Not found' });
   res.json({ success: true, data: n });
@@ -32,10 +34,13 @@ router.patch('/read-all', (req, res) => {
   res.json({ success: true, message: 'All marked read' });
 });
 router.post('/', (req, res) => {
+  if (!['admin', 'manager'].includes(req.user.role)) return res.status(403).json({ success: false, message: 'Access denied' });
   const n = db.insert('notifications', { userId: req.body.userId || req.user.id, title: req.body.title, message: req.body.message, type: req.body.type || 'info', relatedId: req.body.relatedId || null, read: false });
   res.status(201).json({ success: true, data: n });
 });
 router.delete('/:id', (req, res) => {
+  const existing = db.find('notifications', req.params.id);
+  if (!existing || (req.user.role !== 'admin' && String(existing.userId) !== String(req.user.id))) return res.status(404).json({ success: false, message: 'Not found' });
   db.remove('notifications', req.params.id);
   res.json({ success: true, message: 'Deleted' });
 });

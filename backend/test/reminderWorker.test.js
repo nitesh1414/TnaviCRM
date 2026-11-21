@@ -1,0 +1,28 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'tnavi-reminders-'));
+process.env.DATA_FILE = path.join(temp, 'db.json');
+const db = require('../src/utils/db');
+const { runDueReminders } = require('../src/utils/reminderWorker');
+test('worker delivers once, skips cancelled meetings and does not resend uncertain outcomes', async t => {
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  const due = '2026-01-01T10:00:00.000Z';
+  const base = { channel:'email', to:'client@example.com', subject:'Meeting', body:'Reminder', sendAt:due, brandId:'', propertyId:'', meetingId:'', createdBy:'u', status:'Queued' };
+  const success = db.insert('reminders', base);
+  const uncertain = db.insert('reminders', base);
+  const meeting = db.insert('meetings', {status:'Cancelled', date:'2026-02-01'});
+  const cancelled = db.insert('reminders', { ...base, meetingId:meeting.id });
+  let count = 0;
+  const mock = { sendEmail: async () => { count++; if (count === 2) throw new Error('timeout'); return { messageId:'abc' }; } };
+  await runDueReminders(new Date('2026-01-02T00:00:00Z'), mock);
+  assert.equal(count,2);
+  assert.equal(db.find('reminders',success.id).status,'Accepted');
+  assert.equal(db.find('reminders',uncertain.id).status,'Needs review');
+  assert.equal(db.find('reminders',cancelled.id).status,'Cancelled');
+  assert.equal(db.all('communications').filter(x => x.reminderId === success.id).length,1);
+  await runDueReminders(new Date('2026-01-03T00:00:00Z'), mock);
+  assert.equal(count,2);
+});

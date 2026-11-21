@@ -22,10 +22,12 @@ router.get('/me', auth, (req, res) => res.json({ success: true, user: req.user }
 
 router.post('/register', auth, requireRole('admin'), (req, res) => {
   const { name, email, password, role, phone, designation } = req.body;
+  if (role && !['admin','manager','employee','viewer'].includes(role)) return res.status(400).json({ success: false, message: 'Invalid role' });
   if (!name || !email || !password) return res.status(400).json({ success: false, message: 'Name, email, password required' });
   if (db.all('users').some(u => u.email.toLowerCase() === email.toLowerCase())) return res.status(400).json({ success: false, message: 'Email already exists' });
   const user = db.insert('users', { name, email, password: bcrypt.hashSync(password, 10), role: role || 'employee', phone: phone || '', designation: designation || '', active: true });
   const { password: _, ...safe } = user;
+  db.logActivity(req.user, 'create', 'users', user.id, JSON.stringify({ name:user.name, email:user.email, role:user.role }));
   res.status(201).json({ success: true, data: safe });
 });
 

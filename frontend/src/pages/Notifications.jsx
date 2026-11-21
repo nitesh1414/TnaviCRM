@@ -14,7 +14,8 @@ const iconFor = (type) => {
 export default function Notifications() {
   const [items, setItems] = useState([]);
   const [smart, setSmart] = useState([]);
-  const load = () => { get('/notifications').then(r => setItems(r.data || [])).catch(() => {}); get('/notifications/smart').then(r => setSmart(r.data || [])).catch(() => {}); };
+  const [reminders, setReminders] = useState([]);
+  const load = () => { get('/notifications').then(r => setItems(r.data || [])).catch(() => {}); get('/notifications/smart').then(r => setSmart(r.data || [])).catch(() => {}); get('/reminders').then(r => setReminders(r.data || [])).catch(() => {}); };
   useEffect(load, []);
 
   const markRead = async (id) => { await patch(`/notifications/${id}/read`); load(); };
@@ -48,7 +49,11 @@ export default function Notifications() {
           {!items.length && <p className="muted">No notifications</p>}
         </div>
       </div>
-      <div className="card"><h3>Integrations</h3><p className="muted">Reminders are calculated when this page is opened. Automatic delivery, email and WhatsApp integrations are not implemented.</p></div>
+      <div className="card" style={{ marginBottom: 16 }}><h3>Scheduled client reminders</h3><p className="muted">Accepted means the provider accepted the message, not that it was delivered. Check the provider before rescheduling an item needing review.</p>
+        {reminders.map(r => <div key={r.id} className="list-item"><div><strong>{r.channel === 'email' ? 'Email' : 'WhatsApp'} · {r.to}</strong><div className="muted">{new Date(r.sendAt).toLocaleString()} · {r.status}{r.error ? ` · ${r.error}` : ''}</div></div>{r.status === 'Queued' && <button className="btn-secondary" onClick={async () => { try { await patch(`/reminders/${r.id}/cancel`); load(); } catch (e) { alert(e.response?.data?.message || 'Cancellation failed'); } }}>Cancel</button>}</div>)}
+        {!reminders.length && <p className="muted">No scheduled reminders. Schedule one from Send to Client.</p>}
+      </div>
+      <div className="card"><h3>Integrations</h3><p className="muted">Smart reminders are calculated when this page is opened. Client reminders are sent by the server while it is running using the configured shared sender.</p></div>
     </div>
   );
 }

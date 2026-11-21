@@ -1,9 +1,13 @@
 const fs = require('fs');
 const path = require('path');
-const { v4: uuid } = require('uuid');
+const { randomUUID: uuid } = require('crypto');
+const access = require('./access');
 
-const DATA_FILE = path.join(__dirname, '../../data/db.json');
-const COLLECTIONS = ['users','properties','brands','leads','meetings','communications','proposals','leases','documents','tasks','notifications','activityLogs'];
+const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, '../../data/db.json');
+const driver = process.env.DB_DRIVER || 'json';
+if (!['json', 'mysql'].includes(driver)) throw new Error(`Unsupported DB_DRIVER: ${driver}`);
+const mysql = driver === 'mysql' ? require('./mysqlStore') : null;
+const COLLECTIONS = ['users','properties','brands','leads','meetings','communications','proposals','leases','documents','tasks','notifications','activityLogs','reminders'];
 
 function ensureFile() {
   if (!fs.existsSync(DATA_FILE)) {
@@ -15,29 +19,42 @@ function ensureFile() {
 }
 function readDB() {
   ensureFile();
-  try { return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); }
-  catch { const empty = {}; COLLECTIONS.forEach(c => empty[c] = []); return empty; }
+  return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); // Fail closed rather than overwrite corrupt data.
 }
-function writeDB(db) { fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true }); fs.writeFileSync(DATA_FILE, JSON.stringify(db, null, 2)); }
+function writeDB(db) {
+  fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+  const temp = `${DATA_FILE}.${process.pid}.${uuid()}.tmp`;
+  try { fs.writeFileSync(temp, JSON.stringify(db, null, 2), { mode: 0o600 }); fs.renameSync(temp, DATA_FILE); }
+  finally { if (fs.existsSync(temp)) fs.unlinkSync(temp); }
+}
 
-function all(collection) { return readDB()[collection] || []; }
-function find(collection, id) { return all(collection).find(r => String(r.id) === String(id)); }
+function rawFind(collection, id) { return mysql ? mysql.call('find', { collection, id: String(id) }) : (readDB()[collection] || []).find(r => String(r.id) === String(id)); }
+function all(collection) { const list = mysql ? mysql.call('all', { collection }) : (readDB()[collection] || []); return list.filter(record => access.visible(collection, record, rawFind)); }
+function find(collection, id) { const record = rawFind(collection,id); return record && access.visible(collection,record,rawFind) ? record : null; }
+function getSettings() { return mysql ? mysql.call('getSettings') : (readDB().settings || {}); }
+function setSettings(settings) { if (mysql) return mysql.call('setSettings', { settings }); const data = readDB(); data.settings = settings; writeDB(data); }
 function filter(collection, fn) { return all(collection).filter(fn); }
 
 function insert(collection, data) {
-  const db = readDB();
   const now = new Date().toISOString();
   const rec = { id: data.id || uuid(), createdAt: now, updatedAt: now, ...data };
+  if (mysql) return mysql.call('insert', { collection, record: rec });
+  const db = readDB();
+  if (!Array.isArray(db[collection])) db[collection] = [];
   db[collection].push(rec); writeDB(db); return rec;
 }
-function update(collection, id, patch) {
+function update(collection, id, patch, expectedStatus) {
+  if (!find(collection, id)) return null;
+  if (mysql) return mysql.call('update', { collection, id: String(id), patch: { ...patch, updatedAt: new Date().toISOString() }, expectedStatus });
   const db = readDB();
   const i = db[collection].findIndex(r => String(r.id) === String(id));
-  if (i === -1) return null;
+  if (i === -1 || (expectedStatus !== undefined && db[collection][i].status !== expectedStatus)) return null;
   db[collection][i] = { ...db[collection][i], ...patch, updatedAt: new Date().toISOString() };
   writeDB(db); return db[collection][i];
 }
 function remove(collection, id) {
+  if (!find(collection, id)) return false;
+  if (mysql) return mysql.call('remove', { collection, id: String(id) });
   const db = readDB();
   const i = db[collection].findIndex(r => String(r.id) === String(id));
   if (i === -1) return false;
@@ -69,4 +86,4 @@ function notify(userId, title, message, type = 'info', relatedId = null) {
   try { return insert('notifications', { userId, title, message, type, relatedId, read: false }); } catch { return null; }
 }
 
-module.exports = { readDB, writeDB, all, find, filter, insert, update, remove, paginate, searchFilter, logActivity, notify, COLLECTIONS };
+module.exports = { readDB, writeDB, getSettings, setSettings, all, find, filter, insert, update, remove, paginate, searchFilter, logActivity, notify, COLLECTIONS };

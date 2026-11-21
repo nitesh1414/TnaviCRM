@@ -12,6 +12,8 @@ import Documents from './pages/Documents';
 import Reports from './pages/Reports';
 import Users from './pages/Users';
 import Notifications from './pages/Notifications';
+import Settings from './pages/Settings';
+import Compose from './pages/Compose';
 import './styles.css';
 
 function App() {
@@ -25,6 +27,8 @@ function App() {
       <Route path="/matching" element={<Matching />} />
       <Route path="/leads" element={<LeadsPage />} />
       <Route path="/meetings" element={<Meetings />} />
+      <Route path="/compose" element={user.role === 'viewer' ? <Navigate to="/" replace /> : <Compose />} />
+      <Route path="/settings" element={user.role === 'admin' ? <Settings /> : <Navigate to="/" replace />} />
       <Route path="/communications" element={<CommunicationsPage />} />
       <Route path="/proposals" element={<ProposalsPage />} />
       <Route path="/leases" element={<LeasesPage />} />

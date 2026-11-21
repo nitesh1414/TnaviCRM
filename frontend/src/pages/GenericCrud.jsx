@@ -1,9 +1,14 @@
 import { useState } from 'react';
-import { post, put, del } from '../api';
+import ProposalDetail from '../components/ProposalDetail';
+import { useAuth } from '../context/AuthContext';
+import { get, post, put, del } from '../api';
 import { Toolbar, Pagination, RowActions, Modal, Field, Badge, Empty, useList, useLookups, fmtINR, fmtDate } from '../components/ui';
 
 // Config-driven CRUD page used by Properties, Brands, Leads, Communications, Proposals, Leases, Tasks
 export default function GenericCrud({ config }) {
+  const { user } = useAuth();
+  const canWrite = user?.role !== 'viewer';
+  const canDelete = ['admin', 'manager'].includes(user?.role);
   const { endpoint, title, subtitle, columns, formFields, emptyForm, viewFields } = config;
   const list = useList(endpoint);
   const lookups = useLookups();
@@ -11,10 +16,18 @@ export default function GenericCrud({ config }) {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [timeline, setTimeline] = useState(null);
+  const [timelineError, setTimelineError] = useState('');
 
   const openAdd = () => { setForm({ ...emptyForm }); setModal({ mode: 'add' }); setError(''); };
   const openEdit = (rec) => { setForm({ ...emptyForm, ...rec }); setModal({ mode: 'edit', record: rec }); setError(''); };
-  const openView = (rec) => { setModal({ mode: 'view', record: rec }); };
+  const openView = (rec) => {
+    setModal({ mode: 'view', record: rec }); setTimeline(null); setTimelineError('');
+    if (endpoint === '/brands' || endpoint === '/properties') {
+      const type = endpoint === '/brands' ? 'brand' : 'property';
+      get(`/timeline/${type}/${rec.id}`).then(r => setTimeline(r.data)).catch(() => setTimelineError('Could not load activity timeline.'));
+    }
+  };
 
   const save = async (e) => {
     e.preventDefault(); setSaving(true); setError('');
@@ -68,14 +81,14 @@ export default function GenericCrud({ config }) {
 
   return (
     <div>
-      <Toolbar title={title} subtitle={subtitle} onAdd={openAdd} addLabel={config.addLabel || 'Add New'} search={list.search} setSearch={list.setSearch} />
+      <Toolbar title={title} subtitle={subtitle} onAdd={canWrite ? openAdd : null} addLabel={config.addLabel || 'Add New'} search={list.search} setSearch={list.setSearch} />
       <div className="table-wrap">
         <table>
           <thead><tr>{columns.map(c => <th key={c.key}>{c.label}</th>)}<th>Actions</th></tr></thead>
           <tbody>
             {list.data.map(rec => (
               <tr key={rec.id}>{columns.map(c => <td key={c.key}>{renderValue(rec, c)}</td>)}
-                <td><RowActions onView={() => openView(rec)} onEdit={() => openEdit(rec)} onDelete={() => remove(rec)} /></td></tr>
+                <td><RowActions onView={() => openView(rec)} onEdit={canWrite ? () => openEdit(rec) : null} onDelete={canDelete ? () => remove(rec) : null} /></td></tr>
             ))}
           </tbody>
         </table>
@@ -85,8 +98,10 @@ export default function GenericCrud({ config }) {
       </div>
 
       <Modal open={!!modal} onClose={() => setModal(null)} title={modal?.mode === 'add' ? `Add ${config.singular}` : modal?.mode === 'edit' ? `Edit ${config.singular}` : config.singular} wide={config.wide}>
-        {modal?.mode === 'view' ? (
-          <dl className="kv">
+        {modal?.mode === 'view' && endpoint === '/proposals' ? (
+          <ProposalDetail initial={modal.record} lookups={lookups} canWrite={canWrite} onChange={list.reload} />
+        ) : modal?.mode === 'view' ? (
+          <><dl className="kv">
             {(viewFields || columns).map(f => (
               <div key={f.key} style={{ display: 'contents' }}>
                 <dt>{f.label}</dt><dd>{renderValue(modal.record, f)}</dd>
@@ -94,6 +109,7 @@ export default function GenericCrud({ config }) {
             ))}
             <dt>Created</dt><dd>{fmtDate(modal.record.createdAt)}</dd>
           </dl>
+          {(endpoint === '/brands' || endpoint === '/properties') && <section style={{ marginTop: 24 }}><h3>Activity timeline</h3>{timelineError && <p className="error-box">{timelineError}</p>}{!timeline && !timelineError && <p className="muted">Loading…</p>}{timeline && !timeline.length && <p className="muted">No linked activity yet.</p>}<div className="timeline">{timeline?.map((event, i) => <div className="timeline-item" key={`${event.kind}-${event.data.id}-${i}`}><strong>{event.kind}</strong> · {fmtDate(event.date)}<div>{event.data.title || event.data.notes || event.data.purpose || '—'}</div><div className="muted">{event.data.status || event.data.type || event.data.stage || ''}</div></div>)}</div></section>}</>
         ) : (
           <form onSubmit={save}>
             {error && <div className="error-box">{error}</div>}

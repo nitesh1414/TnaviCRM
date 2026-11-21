@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const db = require('./utils/db');
-const { v4: uuid } = require('uuid');
+const { randomUUID: uuid } = require('crypto');
 
 function seed() {
   const existing = db.all('users');

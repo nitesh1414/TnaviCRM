@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { context } = require('../utils/access');
 const db = require('../utils/db');
 
 const SECRET = process.env.JWT_SECRET || 'tnavicrm-dev-secret';
@@ -13,7 +14,7 @@ function auth(req, res, next) {
     if (!user || user.active === false) return res.status(401).json({ success: false, message: 'User not found' });
     const { password, ...safe } = user;
     req.user = safe;
-    next();
+    context.run(safe, next);
   } catch { return res.status(401).json({ success: false, message: 'Invalid or expired token' }); }
 }
 function requireRole(...roles) {

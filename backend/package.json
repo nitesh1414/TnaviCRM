@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "seed": "node src/seed.js"
+    "seed": "node src/seed.js",
+    "test": "node --test test/*.test.js",
+    "import:mysql": "node scripts/import-json-to-mysql.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -15,8 +17,11 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
-    "multer": "^1.4.5-lts.1",
+    "multer": "^2.5.0",
     "mysql2": "^3.10.1",
-    "uuid": "^9.0.1"
+    "nodemailer": "^10.6.1"
+  },
+  "devDependencies": {
+    "smtp-server": "^3.21.7"
   }
 }

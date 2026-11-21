@@ -142,3 +142,17 @@ tr:hover td { background: #f9fafb; }
   .calendar-grid { grid-template-columns: repeat(1, 1fr); }
   .kv { grid-template-columns: 1fr; }
 }
+
+/* Keep the menu scrollable without showing its scrollbar. */
+.nav { scrollbar-width: none; -ms-overflow-style: none; }
+.nav::-webkit-scrollbar { display: none; }
+
+.proposal-print-heading { display: none; }
+@media print {
+  body:has(.proposal-detail) .content > div > :not(.modal-overlay) { display: none !important; }
+  body:has(.proposal-detail) .modal-overlay { position: static; display: block; background: white; padding: 0; }
+  body:has(.proposal-detail) .modal { max-width: none; max-height: none; overflow: visible; box-shadow: none; }
+  body:has(.proposal-detail) .modal-head { display: none; }
+  body:has(.proposal-detail) .modal-body { padding: 0; }
+  body:has(.proposal-detail) .proposal-print-heading { display: block; }
+}

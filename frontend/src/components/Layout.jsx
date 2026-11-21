@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Building2, Store, GitCompareArrows, UserPlus, CalendarDays, MessagesSquare, FileText, KeyRound, FolderOpen, CheckSquare, BarChart3, Users, Bell, LogOut, Menu, X, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Building2, Store, GitCompareArrows, UserPlus, CalendarDays, MessagesSquare, FileText, KeyRound, FolderOpen, CheckSquare, BarChart3, Users, Bell, LogOut, Menu, X, ChevronRight, Settings, Send } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { get } from '../api';
 
@@ -12,6 +12,7 @@ const NAV = [
   { to: '/leads', icon: UserPlus, label: 'Leads & Enquiries' },
   { to: '/meetings', icon: CalendarDays, label: 'Meetings & Visits' },
   { to: '/communications', icon: MessagesSquare, label: 'Communications' },
+  { to: '/compose', icon: Send, label: 'Send to Client', sender: true },
   { to: '/proposals', icon: FileText, label: 'Proposals' },
   { to: '/leases', icon: KeyRound, label: 'Leases & Agreements' },
   { to: '/documents', icon: FolderOpen, label: 'Documents' },
@@ -19,6 +20,7 @@ const NAV = [
   { to: '/reports', icon: BarChart3, label: 'Reports & Analytics' },
   { to: '/users', icon: Users, label: 'Users & Employees' },
   { to: '/notifications', icon: Bell, label: 'Notifications' },
+  { to: '/settings', icon: Settings, label: 'Settings', admin: true },
 ];
 
 export default function Layout({ children }) {
@@ -27,8 +29,10 @@ export default function Layout({ children }) {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(0);
+  const [companyName, setCompanyName] = useState('TnaviCRM');
 
   useEffect(() => {
+    get('/settings/company').then(r => setCompanyName(r.data?.name || 'TnaviCRM')).catch(() => {});
     get('/notifications?unread=true').then(r => setUnread((r.data || []).length)).catch(() => {});
   }, [location.pathname]);
 
@@ -39,11 +43,11 @@ export default function Layout({ children }) {
       <aside className={`sidebar ${open ? 'open' : ''}`}>
         <div className="brand">
           <div className="brand-logo">T</div>
-          <div><div className="brand-name">TnaviCRM</div><div className="brand-sub">Property Leasing CRM</div></div>
+          <div><div className="brand-name">{companyName}</div><div className="brand-sub">Property Leasing CRM</div></div>
           <button className="icon-btn sidebar-close" onClick={() => setOpen(false)}><X size={18} /></button>
         </div>
         <nav className="nav">
-          {NAV.map(item => (
+          {NAV.filter(item => (!item.admin || user?.role === 'admin') && (!item.sender || user?.role !== 'viewer')).map(item => (
             <NavLink key={item.to} to={item.to} end={item.to === '/'} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={() => setOpen(false)}>
               <item.icon size={18} /><span>{item.label}</span>
               {item.to === '/notifications' && unread > 0 && <span className="nav-badge">{unread}</span>}

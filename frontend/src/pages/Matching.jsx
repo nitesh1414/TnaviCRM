@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { GitCompareArrows, Send, FileText } from 'lucide-react';
 import { get, post } from '../api';
 import { Badge, fmtINR, useLookups } from '../components/ui';
 
 export default function Matching() {
+  const { user } = useAuth();
   const lookups = useLookups();
   const [brandId, setBrandId] = useState('');
   const [result, setResult] = useState(null);
@@ -69,7 +71,7 @@ export default function Matching() {
                   <td><strong>{p.name}</strong></td><td>{p.city} / {p.area}</td><td>{p.type}</td>
                   <td>{p.totalArea} sq.ft</td><td>{fmtINR(p.expectedRent)}/mo</td><td><Badge value={p.status} /></td>
                   <td><div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{reasons.map((r, i) => <span key={i} className="badge gray">{r}</span>)}</div></td>
-                  <td><button className="btn-secondary" onClick={() => shareWithBrand(p)}><Send size={14} /> Record interest</button></td>
+                  <td>{user?.role !== 'viewer' && <button className="btn-secondary" onClick={() => shareWithBrand(p)}><Send size={14} /> Record interest</button>}</td>
                 </tr>
               ))}
             </tbody>
