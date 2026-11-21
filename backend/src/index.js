@@ -61,7 +61,14 @@ app.get('/api/timeline/:type/:id', auth, (req, res) => {
 app.use((req, res) => res.status(404).json({ success: false, message: 'Route not found' }));
 app.use((err, req, res, next) => { console.error(err); res.status(err.code === 'LIMIT_FILE_SIZE' ? 413 : 500).json({ success: false, message: err.code === 'LIMIT_FILE_SIZE' ? 'File exceeds 25 MB limit' : 'Server error' }); });
 
-if (process.env.DB_DRIVER === 'mysql') require('./utils/mysqlStore').call('ping');
+if (process.env.DB_DRIVER === 'mysql') {
+  try { require('./utils/mysqlStore').call('ping'); }
+  catch (err) {
+    console.error(`MySQL startup failed: ${err.message}`);
+    if (/crm_(records|settings).*doesn.t exist/i.test(err.message)) console.error('Run npm run setup:mysql to create the required tables, then seed or import data.');
+    process.exit(1);
+  }
+}
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`TnaviCRM API listening on http://0.0.0.0:${PORT}`);

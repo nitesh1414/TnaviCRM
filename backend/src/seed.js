@@ -1,3 +1,4 @@
+require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const db = require('./utils/db');
 const { randomUUID: uuid } = require('crypto');
@@ -86,5 +87,11 @@ function seed() {
 
   console.log('Seed complete: 3 users, 5 properties, 4 brands, 4 leads, 3 meetings, 3 comms, 2 proposals, 1 lease, 3 tasks, 3 docs');
 }
-if (require.main === module) seed();
+if (require.main === module) {
+  try { seed(); } catch (err) {
+    console.error(`Seed failed: ${err.message}`);
+    if (process.env.DB_DRIVER === 'mysql' && /crm_(records|settings).*doesn.t exist/i.test(err.message)) console.error('Run npm run setup:mysql to create the required tables, then seed or import data.');
+    process.exitCode = 1;
+  }
+}
 module.exports = { seed };

@@ -41,7 +41,9 @@ Run the integration tests with `cd backend && node --test test/*.test.js`. The l
 
 ## MySQL persistence
 
-The default remains JSON. To use MySQL 8, initialize a new database with `backend/mysql-store.sql` (the older `schema.sql` is illustrative, not used by the adapter). For local development, `docker compose up -d mysql` initializes the tables on a new volume. Set `DB_DRIVER=mysql`, `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD` and `MYSQL_DATABASE` in `backend/.env`. The server fails at startup if it cannot query the tables. Use `npm run seed` only for a new demo database; do not seed real deployments.
+The default remains JSON. For MySQL 8, create the database first, then set `DB_DRIVER=mysql`, `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD` and `MYSQL_DATABASE` in `backend/.env`. From `backend`, run `npm run setup:mysql` to create the required tables without deleting existing data. Your MySQL user needs `CREATE TABLE` privileges. The script uses `backend/mysql-store.sql`; the older `schema.sql` is illustrative and does not create these tables. For local development, `docker compose up -d mysql` initializes them on a new volume.
+
+After setup, **choose one**: run `npm run seed` for a new demo database, or import existing JSON data as described below. Do not seed before importing: the importer refuses a non-empty destination. Both the seed and server load `backend/.env` when run from `backend`. Earlier versions of the seed command did not load `.env` and may have seeded `backend/data/db.json` instead of MySQL. The server fails at startup if it cannot query the MySQL tables.
 
 To migrate a JSON store: stop the API and worker, back up the JSON file and uploads, initialize an **empty** MySQL store, configure the connection and run `cd backend && npm run import:mysql -- --confirm-empty`. The import runs in a transaction and refuses a non-empty destination. Uploaded files stay on the filesystem and must be copied/backed up separately. Preserve `SETTINGS_ENCRYPTION_KEY` when migrating encrypted SMTP/WhatsApp secrets. Do not run the import concurrently with another importer or API.
 
